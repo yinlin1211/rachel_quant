@@ -274,7 +274,7 @@ inline Mat ts_corr(const Mat& x, const Mat& y, int w) {
                 float ox = bx[slot], oy = by[slot];
                 if (std::isfinite(ox) && std::isfinite(oy)) {
                     sx -= ox; sy -= oy; sxy -= (double)ox * oy; sxx -= (double)ox * ox; syy -= (double)oy * oy;
-                } else ++bad;
+                } else --bad;   // 一个 NaN 离开窗口，坏值计数要减少
             }
             float vx = x.at(i, t), vy = y.at(i, t);
             bx[slot] = vx; by[slot] = vy;
@@ -307,7 +307,7 @@ inline Mat ts_cov(const Mat& x, const Mat& y, int w) {
             if (t >= w) {
                 float ox = bx[slot], oy = by[slot];
                 if (std::isfinite(ox) && std::isfinite(oy)) { sx -= ox; sy -= oy; sxy -= (double)ox * oy; }
-                else ++bad;
+                else --bad;   // 一个 NaN 离开窗口，坏值计数要减少
             }
             float vx = x.at(i, t), vy = y.at(i, t);
             bx[slot] = vx; by[slot] = vy;
