@@ -8,10 +8,13 @@ mkdir -p bin
 CXX=${CXX:-g++}
 TICKLIB=${TICKLIB:-/home/intern2/pyTickAlpha}
 
-echo "[1/2] alpha101"
+echo "[1/3] alpha101"
 $CXX -O3 -std=c++11 -fopenmp -o bin/alpha101 src/main.cpp
 
-echo "[2/2] panel_tool"
+echo "[2/3] alpha_expr"
+$CXX -O3 -std=c++11 -fopenmp -o bin/alpha_expr src/alpha_expr.cpp
+
+echo "[3/3] panel_tool"
 $CXX -O2 -std=c++11 -o bin/panel_tool src/panel_tool.cpp \
     "$TICKLIB/liblf_tick2py.so" \
     -L"$TICKLIB" -llquant_kernel -lrt -lpthread \
