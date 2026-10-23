@@ -1,0 +1,28 @@
+# 凭证（绝不提交）
+githubtoken.txt
+
+# 数据：原始 tick 的派生产物，体积大、可重建
+pipeline/panels/
+pipeline/out_*/
+*.dat
+*.mkt
+*.panel
+*.whl
+*.so
+*.pyc
+__pycache__/
+
+# 第三方源码（上游自带 git 仓库）
+kunquant/
+kunquant_pkg/
+kq.json
+kq_*.html
+
+# 基准输出（体积大，只保留计时日志）
+benchmarks/*/
+!benchmarks/*.log
+
+# 编译产物
+pipeline/bin/
+cpp_alpha/calc_day
+cpp_alpha/cache_tool
