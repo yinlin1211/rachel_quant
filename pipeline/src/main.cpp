@@ -154,6 +154,86 @@ int main(int argc, char** argv) {
     auto t3c = std::chrono::steady_clock::now();
     fprintf(stderr, "ic stats %.1fs\n", std::chrono::duration<double>(t3c - t3b).count());
 
+    // ---------- 因子相关性矩阵（82×82），用于去重 ----------
+    // 先把每个因子在全体有效值上标准化，NaN 填 0（占比约 2%，对去重判断无影响），
+    // 再累加 Gram 矩阵。按 (股票, 日) 分块，块内 82×240 个浮点数可放进 L2。
+    std::vector<double> mu(NALPHAS, 0.0), invsd(NALPHAS, 0.0);
+    #pragma omp parallel for schedule(static)
+    for (int k = 0; k < NALPHAS; ++k) {
+        double s = 0.0, s2 = 0.0;
+        long long n = 0;
+        const std::vector<float>& v = results[k].d;
+        for (size_t z = 0; z < v.size(); ++z) {
+            float x = v[z];
+            if (std::isfinite(x)) { s += x; s2 += (double)x * x; ++n; }
+        }
+        if (n > 1) {
+            mu[k] = s / (double)n;
+            double var = s2 / (double)n - mu[k] * mu[k];
+            invsd[k] = (var > 0.0) ? 1.0 / std::sqrt(var) : 0.0;
+        }
+    }
+
+    auto t5 = std::chrono::steady_clock::now();
+    std::vector<double> gram((size_t)NALPHAS * NALPHAS, 0.0);
+    #pragma omp parallel
+    {
+        std::vector<double> g((size_t)NALPHAS * NALPHAS, 0.0);
+        std::vector<float> blk((size_t)NALPHAS * 240);
+        #pragma omp for schedule(dynamic, 16)
+        for (int i = 0; i < p.N; ++i) {
+            for (int d = 0; d < nd; ++d) {
+                const int t0 = d * 240;
+                for (int k = 0; k < NALPHAS; ++k) {
+                    const float* src = &results[k].d[(size_t)i * p.T + t0];
+                    float* dst = &blk[(size_t)k * 240];
+                    for (int s = 0; s < 240; ++s) {
+                        float v = src[s];
+                        dst[s] = std::isfinite(v) ? (float)((v - mu[k]) * invsd[k]) : 0.0f;
+                    }
+                }
+                for (int s = 0; s < 240; ++s) {
+                    for (int a = 0; a < NALPHAS; ++a) {
+                        float va = blk[(size_t)a * 240 + s];
+                        if (va == 0.0f) continue;
+                        double* ga = &g[(size_t)a * NALPHAS];
+                        const float* base = &blk[s];
+                        for (int b = a; b < NALPHAS; ++b)
+                            ga[b] += (double)va * base[(size_t)b * 240];
+                    }
+                }
+            }
+        }
+        #pragma omp critical
+        for (size_t z = 0; z < gram.size(); ++z) gram[z] += g[z];
+    }
+    auto t6 = std::chrono::steady_clock::now();
+    fprintf(stderr, "corr matrix %.1fs\n", std::chrono::duration<double>(t6 - t5).count());
+
+    {
+        char cp[1024];
+        snprintf(cp, sizeof(cp), "%s/corr_matrix.csv", outDir.c_str());
+        FILE* fc = fopen(cp, "w");
+        if (fc) {
+            fprintf(fc, "name");
+            for (int k = 0; k < NALPHAS; ++k) fprintf(fc, ",%s", ALPHAS[k].name);
+            fprintf(fc, "\n");
+            for (int a = 0; a < NALPHAS; ++a) {
+                fprintf(fc, "%s", ALPHAS[a].name);
+                for (int b = 0; b < NALPHAS; ++b) {
+                    double va = gram[(size_t)a * NALPHAS + a];
+                    double vb = gram[(size_t)b * NALPHAS + b];
+                    // gram 只累加了上三角，取对称位置
+                    size_t idx = (a <= b) ? (size_t)a * NALPHAS + b : (size_t)b * NALPHAS + a;
+                    double c = (va > 0 && vb > 0) ? gram[idx] / std::sqrt(va * vb) : 0.0;
+                    fprintf(fc, ",%.4f", c);
+                }
+                fprintf(fc, "\n");
+            }
+            fclose(fc);
+        }
+    }
+
     {
         char icp[1024];
         snprintf(icp, sizeof(icp), "%s/ic_stats.csv", outDir.c_str());
