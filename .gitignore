@@ -26,3 +26,4 @@ benchmarks/*/
 pipeline/bin/
 cpp_alpha/calc_day
 cpp_alpha/cache_tool
+results/search/
