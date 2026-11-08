@@ -163,6 +163,31 @@ node 进程内环境、能否派生子进程、koffi 能否加载、dsh 能否�
 #    http://183.36.43.39:3081/?token=<每次启动随机>
 ```
 
+### 模型接口（与 intern2 同一套 OpenCode 网关）
+
+provider 配置用的是 `apiKeyEnv`，即**从环境变量取 key**，所以必须提供 `ANTHROPIC_AUTH_TOKEN`。
+
+凭证放在独立文件（600 权限），由 `start-dsh.sh` 加载，**不写进 `.bashrc`**：
+
+```sh
+# ~/.dsh-env.sh（chmod 600）
+export ANTHROPIC_BASE_URL=https://opencode.ai/inference/go/anthropic
+export ANTHROPIC_AUTH_TOKEN=<token>
+export ANTHROPIC_MODEL=deepseek-v4.1-flash
+```
+
+`~/start-dsh.sh` 里已加入：
+
+```sh
+if [ -f "$HOME/.dsh-env.sh" ]; then . "$HOME/.dsh-env.sh"; fi
+```
+
+**实测（2026-11-08 18:11）**：从 intern11 直接 POST `/v1/messages` 返回 **HTTP 200**，
+模型 `deepseek-v4.1-flash` 正常响应（input 37 / output 13 tokens）。
+
+> 另一个 provider `custom-pomoai` 需要 `CUSTOM_POMOAI_API_KEY`，本次**未配置**
+> （用不到；要启用再补）。默认模型走 `anthropic` provider。
+
 ### 端口约定
 
 | 账号 | 端口 | 说明 |
