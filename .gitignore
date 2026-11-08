@@ -88,3 +88,7 @@ experiments/rq1_l3/2026*.txt
 experiments/e4_ab/*.fills.csv
 experiments/e4_ab/*.replay.csv
 experiments/e4_ab/*.log
+
+# E5 中间产出（od_split 逐日 CSV 各 ~1.2M 行，可由 bin/od_split 重跑）
+experiments/e5_split/od_split_*.csv
+experiments/e5_split/*.log
