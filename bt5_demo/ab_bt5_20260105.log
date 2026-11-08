@@ -1,0 +1,14 @@
+file name :/opt/bar_data/TickPool/TickPool/20260105.dat
+failed to open file: {}/opt/bar_data/TickPool/TickPool/20260105.dat
+System error, Stack trace:
+0 /opt/datas/lf_basket_trade/lib/liblf_utillq.so(_ZN7lfquant18SystemErrorHandlerEi+0x3c) [0x7f90c9e945dc] 
+1 /lib64/libc.so.6(+0x36400) [0x7f90c8d8b400] 
+2 /opt/datas/lf_basket_trade/lib/liblquant_kernel.so(_ZN16lquant_tick_pool4loadEPKc+0x8f) [0x7f90c997aaef] 
+3 /opt/datas/lf_basket_trade/lib/liblf_bt5.so(_ZN7lfquant21lf_market_data_reader4initESs+0x155) [0x7f90c9c2d7c5] 
+4 ./demo() [0x410da2] 
+5 ./demo() [0x41235d] 
+6 /opt/datas/lf_basket_trade/lib/liblf_bt5.so(_Z7bt_mainPFPN7lfquant19quant_strategy_baseEvEiPPc+0x81c) [0x7f90c9c118ec] 
+7 /opt/datas/lf_basket_trade/lib/liblf_bt5.so(_ZN7lfquant9main_implEPFPNS_19quant_strategy_baseEvEiPPc+0x28a) [0x7f90c9c0059a] 
+8 ./demo() [0x442514] 
+9 /lib64/libc.so.6(__libc_start_main+0xf5) [0x7f90c8d77555] 
+10 ./demo() [0x40ef99] 

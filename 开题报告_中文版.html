@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>A股高频量化策略的大规模分层测试研究——面向日内T+0的因子、模型与执行评估</title>
+<!--
+  用法：双击用 Word 打开本文件 → “文件 / 另存为”→ 选择“Word 文档 (*.docx)”。
+  说明：本文件由 overleaf_project 的 chapter/*.tex 整理而来，正文与 LaTeX 版一致；
+        引用已按作者-年份渲染（模板本身用 gb7714-2015ay 作者-年份样式）。
+        最终提交仍以 XeLaTeX + Biber 编译的 PDF 为准。
+-->
+<style>
+@page { size: A4; margin: 2.54cm; }
+body { font-family: "宋体", "SimSun", serif; font-size: 12pt; line-height: 1.75; color: #000; }
+h1 { font-family: "黑体", "SimHei", sans-serif; font-size: 16pt; text-align: center; line-height: 1.5; margin: 0 0 6pt 0; }
+h2 { font-family: "黑体", "SimHei", sans-serif; font-size: 14pt; margin: 1.6em 0 0.5em 0; }
+h3 { font-family: "黑体", "SimHei", sans-serif; font-size: 12pt; margin: 1.2em 0 0.4em 0; }
+p { text-indent: 2em; margin: 0.35em 0; text-align: justify; }
+p.noindent { text-indent: 0; }
+p.center { text-indent: 0; text-align: center; }
+table { border-collapse: collapse; width: 100%; margin: 0.8em 0; font-size: 10.5pt; line-height: 1.5; }
+th, td { border: 1px solid #555; padding: 4pt 6pt; vertical-align: top; text-align: left; }
+th { background: #f2f2f2; font-family: "黑体", "SimHei", sans-serif; font-weight: normal; }
+caption { caption-side: top; text-align: center; font-size: 10.5pt; margin-bottom: 3pt; font-family: "黑体", "SimHei", sans-serif; }
+ol, ul { margin: 0.35em 0 0.35em 2em; }
+li { margin: 0.2em 0; text-align: justify; }
+.ref { text-indent: -2em; margin-left: 2em; font-size: 10.5pt; line-height: 1.5; }
+.tip { font-size: 9pt; color: #666; border: 1px dashed #999; padding: 6pt; margin: 12pt 0; }
+</style>
+</head>
+<body>
+
+<h1>A股高频量化策略的大规模分层测试研究<br>——面向日内T+0的因子、模型与执行评估</h1>
+
+<p class="center">莫卓儒（学号 2568511008）　指导教师：朱晓天　高级讲师、研究生导师　2026年11月</p>
+
+<h2>一、选题报告（Topic Selection Report）</h2>
+
+<h3>问题的提出</h3>
+
+<p>A股市场的交易结构在过去十年发生了两件对量化研究影响深远的变化。其一，交易所行情从日频、分钟频推进到逐笔粒度：当前可获取的Level-2数据同时包含十档快照（MD）、逐笔成交（TS）与逐笔委托（OD），单日全市场记录约4.37亿条。其二，日内交易的制度空间被打开，T+0策略从理论讨论进入实盘试验，做市、日内反转、事件驱动等策略对<i>执行质量</i>的依赖远高于日频策略。</p>
+
+<p>这两件事共同把研究重心从“预测收益”推向“预测收益能否在真实成本与真实成交假设下实现”。一个在分钟面板上RankIC可观的因子，可能因为换手过高、成交价假设过于乐观而在扣除成本后归零；一个在回测中稳定盈利的日内策略，可能只是因为模拟器默认“按量比例成交”，忽略了限价单在队列中的真实位置。本课题组前期实测已给出直接证据：一分钟反转信号在往返13–19个基点的成本下净收益为负，盈亏平衡点约15个基点；把成交价从当日收盘改为可实现的成交价后，毛收益由16.3个基点降至8.1个基点。</p>
+
+<p>因此，本研究的出发点不是再找一个因子，而是回答一个更基础的问题：<b>在A股逐笔数据上，如何建立一套可复现、可扩展、以真实成本与执行约束为准绳的大规模测试体系，并用它判断高频因子、模型与日内T+0策略是否真正可用。</b></p>
+
+<h3>研究目的</h3>
+
+<p class="noindent">本研究拟达成三个目的。</p>
+<ol>
+  <li><b>建立分层测试栈。</b>把从原始逐笔数据到策略结论的全过程拆成口径准备（L0）、大规模因子测试（L1）、单模型与组合测试（L2）、策略回测与执行评估（L3）四层，每层定义明确的输入、输出、评价指标与通过标准，使“一个结论是否可信”可以被逐层追溯。</li>
+  <li><b>完成一次大规模实证。</b>在数百个交易日的全市场数据上，对上千个候选因子做统一口径的筛选、衰减检验与成本检验，给出可复现的因子有效性边界，而不是零散的最优结果。</li>
+  <li><b>校准日内T+0的执行假设。</b>用逐笔重放得到的分层订单簿替代“按量比例成交”的快照假设，量化成交率、逆向选择成本与容量对策略收益的修正幅度。</li>
+</ol>
+
+<h3>研究意义</h3>
+
+<p><b>学术意义。</b>订单簿信息与短期价格的关系已有成熟理论（Kyle, 1985; Glosten &amp; Milgrom, 1985），订单流对价格的短期冲击亦有大量实证（Hasbrouck, 1991; Cont et al., 2014）。但国内研究多止步于快照口径，缺少“同一套数据、同一套成本、同一套检验”下的大规模对照。本研究提供的分层测试框架，使不同来源的因子结论可以在同一基准上比较，也为“聚合口径下的结论在逐笔口径下是否仍然成立”提供了可检验的设计。</p>
+
+<p><b>实践意义。</b>对资金管理而言，最有价值的不是某个因子的收益率，而是一条判断链条：数据是否可信、因子是否稳定、模型是否过拟合、成本是否吞掉收益、容量是否支撑规模。本研究把这五个判断固化为可执行的流程与门槛，降低研究结论从回测走向实盘时的衰减。</p>
+
+<h3>研究价值与创新点</h3>
+
+<ol>
+  <li><b>分层测试栈。</b>已有研究通常把数据清洗、因子筛选、模型训练、回测评估混在一处，任一环节的口径变化都会污染全部结论。本研究把四层解耦，L0一旦冻结，上层结论才可比较；层与层之间只通过落盘的中间层传递，保证可复现。</li>
+  <li><b>大规模而非单点。</b>因子测试覆盖约1,800个候选，采用统一的样本外切分、统一的成本模型与统一的多重检验校正，报告全部尝试过的组合，而不是只报告最优的几个（Harvey et al., 2016; Bailey et al., 2017）。</li>
+  <li><b>成本与容量作为一等结果。</b>收益率必须与换手、成本、容量、资金使用率同时报告；任何只在低仓位下成立的结论都不被视为策略可行性的证据。</li>
+  <li><b>执行口径的并排对照。</b>在相同信号上同时运行快照假设与逐笔重放假设两套成交模型，把“执行假设差异”本身作为结果报告，为后续研究提供成本校准基准。</li>
+</ol>
+
+<h3>研究空白</h3>
+
+<p class="noindent">综合现有文献与工程实践，本研究识别出四个空白。</p>
+<ol>
+  <li><b>缺少统一基准。</b>国内高频因子研究的数据区间、样本切分、成本假设各不相同，结论之间不可比；尚无公开的、覆盖长样本的分层测试基准。</li>
+  <li><b>快照口径与逐笔口径的差异未被系统量化。</b>多数研究直接使用十档快照，隐含“任意时刻可按比例成交”的假设，而该假设在日内高频策略上的偏差幅度缺少实证。</li>
+  <li><b>多重检验问题被普遍忽视。</b>大规模因子枚举下，未经校正的显著性会系统性高估因子的真实预测力（McLean &amp; Pontiff, 2016）。</li>
+  <li><b>T+0策略的执行约束研究不足。</b>涨跌停、T+1底仓、日内回转次数、冲击成本等约束如何共同决定策略可行性，缺少工程化的评估框架。</li>
+</ol>
+
+<h3>国内外研究现状</h3>
+
+<p><b>（1）订单簿与市场微观结构。</b>Kyle与Glosten–Milgrom建立了信息交易者与做市商之间的逆向选择框架（Kyle, 1985; Glosten &amp; Milgrom, 1985），后续研究把订单簿形状、深度与价格冲击联系起来（Parlour, 1998; Bouchaud et al., 2009）。Lillo等指出订单流的长记忆性会改变最优执行路径（Lillo et al., 2003），Easley等用订单流毒性刻画知情交易（Easley &amp; O’Hara, 1992; Easley et al., 1996）。这些工作为“订单簿信息有价值”提供了理论与实证基础，但其结论多来自做市商主导、T+0制度成熟的市场，在A股的适用性需要重新检验。</p>
+
+<p><b>（2）高频因子与短期预测。</b>已实现波动率、订单流不平衡与买卖压力是短期预测的主要变量（Andersen &amp; Bollerslev, 1998; Barndorff-Nielsen &amp; Shephard, 2004; Cont et al., 2014）。近年机器学习方法被大量用于高频收益预测（Gu et al., 2020; Krauss et al., 2017; Fischer &amp; Krauss, 2018），但样本外衰减与过拟合问题随之突出。国内研究多聚焦于分钟频价量因子，长样本、统一成本口径的系统测试仍然稀缺（石川等, 2020; Zhao et al., 2025）。近年订单簿深度模型把多档价量直接组织成张量或序列输入，在公开的短期预测基准上持续改进（Gu &amp; Mandic, 2026）。</p>
+
+<p><b>（3）做市、最优执行与T+0。</b>Avellaneda–Stoikov的做市框架把库存风险与报价偏移统一在一个随机控制问题中（Avellaneda &amp; Stoikov, 2008; Stoikov, 2018），限价单队列位置对成交概率的影响是其中的核心参数。日内T+0策略的可行性同时取决于信号强度、成交概率与成本结构，三者缺一不可。Albers等用真实报单数据刻画了挂单端的核心权衡：报价越容易成交，成交后的价格漂移往往越不利，只看成交率会系统性高估做市收益（Albers et al., 2025）；Hafsi等把队列深度显式引入被动冲击的校准，说明队列前方的量本身就是冲击曲线的一个状态变量（Hafsi et al., 2026）。</p>
+
+<p><b>（4）多重检验与可复现性。</b>Harvey等提出以t ≥ 3作为新因子的内部显著线（Harvey et al., 2016），Bailey等讨论了回测过拟合与紧缩夏普（Bailey et al., 2017; López de Prado, 2018），McLean–Pontiff发现学术因子在发表后收益显著衰减（McLean &amp; Pontiff, 2016）。这些结论共同要求：大规模因子研究必须预注册主假设、报告全部尝试，并在独立样本上复核。</p>
+
+<p><b>（5）因子挖掘的自动化。</b>公式化因子的搜索已从遗传规划扩展到以语言模型驱动的生成—评估闭环（Wang et al., 2025a; Tang et al., 2025; Zhang et al., 2025; Shi et al., 2025），并在沪深300、沪深500上报告了可观的样本外表现（Wang et al., 2026）；语言模型也被用于剪枝遗传规划产出的表达式（Chen &amp; Qi, 2026）。这类工作的共同含义是：当候选规模达到千级，筛选纪律比任何单个公式都重要——这正是本研究把因子枚举放在L1、而不把它当作主结果的原因。</p>
+
+<p><b>（6）数据口径与结果审计。</b>近期研究开始审计因子研究自身：Tu等指出部分公开脚本把价格复权锚定在快照的最后一日，使公式隐式依赖未来的公司行动，在中国A股上该偏差可达IC的约14%（Tu et al., 2026）；He等对语言模型因子挖掘的保留与评估口径做了全目录复核，说明缺少不可变的结果账本时，方法之间的比较不可识别（He, 2026）。这些结论支持本研究把口径冻结放在L0，并要求重建与因子两侧都留下可复核的中间层。</p>
+
+<p><b>（7）国内数据环境。</b>A股Level-2行情同时提供逐笔委托与逐笔成交，为订单级研究提供了数据条件；但字段语义缺少官方数据字典、沪深两所口径不一致、隐藏单不披露等限制，使得“数据能支持到什么粒度”本身成为一个需要实证回答的问题。本研究把这一判断放在L0层，先于任何因子结论。</p>
+
+<h3>本章小结</h3>
+
+<p>本章说明了研究的问题来源：数据粒度已到逐笔，而研究范式仍停留在快照与单点最优；由此提出以分层测试栈为核心、以成本与执行为准绳的大规模实证研究。下一章给出具体的研究内容、方法与实施安排。</p>
+
+<h2>二、研究设计（Research Design）</h2>
+
+<h3>研究内容与总体框架</h3>
+
+<p>本研究把“从原始逐笔数据到策略结论”的全过程拆成四个测试层级。层级之间只通过落盘的中间层传递数据，下层结论不依赖上层的实现细节，因此任何一层的口径变化都可以被定位、被复算、被回溯。</p>
+
+<table>
+<caption>表1　分层测试栈的四层定义</caption>
+<tr><th style="width:8%">层级</th><th style="width:20%">名称</th><th style="width:36%">输入 → 输出</th><th style="width:36%">通过标准</th></tr>
+<tr><td>L0</td><td>数据与口径准备</td><td>原始逐笔 → 统一面板与订单簿中间层</td><td>十档逐档可对账；样本切分无泄漏</td></tr>
+<tr><td>L1</td><td>大规模因子测试</td><td>面板 → 合格因子池</td><td>多周期IC/RankIC显著（FDR校正）；样本外不反转</td></tr>
+<tr><td>L2</td><td>单模型与组合测试</td><td>因子池 → 预测分与组合权重</td><td>滚动样本外ICIR稳定；换手与容量可承受</td></tr>
+<tr><td>L3</td><td>策略回测与执行评估</td><td>权重 → 净值、成本、容量</td><td>扣除全部成本后收益为正；结论在独立样本复核</td></tr>
+</table>
+
+<p>采用分层而非端到端流程，原因有三：其一，因子数量达到千级时，端到端调参无法区分“因子无效”与“模型没调好”；其二，成本模型与成交假设一旦变化，只有L3需要重跑；其三，每一层的输出都是可交付物，进度可以按周检验，而不是等到最后才知道结论是否成立。</p>
+
+<h3>L0：数据与口径准备</h3>
+
+<p class="noindent">L0不产生任何信号，只定义所有后续环节共同遵守的口径。它包含四项工作。</p>
+
+<p><b>（1）数据读取与面板构建。</b>TickPool以“交易日一个文件”组织，单日全市场约4.37亿条记录（快照约2,147万条、逐笔成交约1.86亿条、逐笔委托约2.29亿条）。按索引读取并做三路归并后，单日处理时间由172秒降至47秒；“原始tick只扫一遍”是硬约束，后续所有中间层均从面板读取。</p>
+
+<p><b>（2）订单簿重放。</b>交易所发布的是事件流而非任意时刻的订单簿状态。要得到某一时刻的十档价量，必须按序重放逐笔委托与逐笔成交。本研究把重放目标分为两级：<i>十档逐档可对账</i>为核心目标（本质是确定性计算，以3秒快照为校验锚点）；<i>订单级FIFO队列</i>为增强目标（窗口开始前已挂订单缺少订单号，只能按价格优先、时间优先推断，属近似量，使用时必须标注）。当前原型的第一档匹配率为40.1%，主要误差来自十档截断、沪深字段语义未分开标定与窗口前挂单缺号，均已定位到具体环节，改进路径明确。</p>
+
+<p><b>（3）标签与切分。</b>标签统一定义为未来1、3、5、10分钟收益与方向；样本严格按时间切分，训练、验证、样本外三段不重叠，禁止任何跨越切分点的归一化或特征计算。</p>
+
+<p><b>（4）成本与交易约束。</b>成本模型包含佣金、过户费、印花税与滑点；交易约束包含T+1底仓、日内回转次数、涨跌停不可成交、停牌处理。成本不是事后扣除项，而是从L1开始就参与筛选的一等变量。</p>
+
+<h3>L1：大规模因子测试</h3>
+
+<p>L1只回答“单个因子有没有预测力”，不训练模型、不下单。因子库沿三条路径构建：直接接入成熟因子库（Alpha101的101个公式中约82个可用（Kakushadze, 2016），以及Alpha158、Alpha360（Yang et al., 2020））；基于假设驱动的表达式生成；以及遗传规划与符号搜索。三条路径的产出进入同一个四层筛选漏斗：</p>
+
+<ol>
+  <li><b>统计显著性</b>：1/3/5/10分钟IC与RankIC，配合FDR多重检验校正（Harvey et al., 2016）；</li>
+  <li><b>冗余控制</b>：因子间相关性去重，每个因子簇只保留代表性最强的一个；</li>
+  <li><b>增量检验</b>：相对基准因子库的增量IC，剔除“换个写法”的重复因子；</li>
+  <li><b>衰减与半衰期</b>：IC随持有期的衰减曲线，标注每个因子适合的持有期与换手水平。</li>
+</ol>
+
+<p>漏斗的每一层都保留被淘汰因子的记录，最终报告“尝试总数、各层通过数、通过者清单”，而不是只报告最好的几个。</p>
+
+<h3>L2：单模型与组合测试</h3>
+
+<p class="noindent">L2把合格因子池转换为预测分与组合权重，分三个子层。</p>
+
+<p><b>（1）单模型层。</b>线性模型、树模型与序列模型各自内部做公平比较，统一使用滚动窗口的样本外评估，评价指标包括IC/RankIC、ICIR、胜率、分位数单调性、换手与容量。模型之间不比较“最好一天”的表现，只比较滚动样本外的稳定性。序列模型的函数形式近年仍在快速演化，状态空间类与扩散式结构已被系统比较（Wang et al., 2025b; Su et al., 2025）。</p>
+
+<p><b>（2）组合子层。</b>在预测分之上测试等权、IC加权、风险平价与约束优化四类组合方式，约束包含单票权重上限、行业与市值暴露、换手上限。近期文献也把机器学习直接嵌入Markowitz式的权重求解（López de Prado et al., 2025）。</p>
+
+<p><b>（3）过拟合控制。</b>所有模型超参数只在训练段选择，验证段用于早停，样本外段只评估一次；对多重比较做统一校正，并报告紧缩夏普（Bailey et al., 2017; López de Prado, 2018）。</p>
+
+<h3>L3：策略回测与日内T+0执行评估</h3>
+
+<p class="noindent">L3把组合权重变成净值曲线，并回答“这个策略在真实执行条件下还成不成立”。</p>
+
+<ol>
+  <li><b>回测引擎</b>：逐tick回放、订单生命周期、撮合、T+1账户、费用、流式因子、风控与成交日志八个组件已实现并跑通；闭源撮合引擎可作为交叉校验，但不作为唯一依据。</li>
+  <li><b>两套成交假设并排</b>：一套为“按量比例成交”的快照假设，一套为逐笔重放得到的订单簿假设；两套结果同时报告，差异本身作为结论。</li>
+  <li><b>T+0约束</b>：日内回转次数、底仓占用、涨跌停与停牌不可成交、冲击成本随参与率上升，全部进入回测，不允许事后修正。</li>
+  <li><b>成本与容量</b>：往返成本按13–19个基点区间敏感性测试；容量以“收益衰减到可接受水平时的资金规模”定义，同时报告资金使用率。</li>
+</ol>
+
+<p>本层不追求最高收益，而追求“结论在什么条件下成立、在什么条件下失效”的边界表。</p>
+
+<h3>稳健性与多重检验</h3>
+
+<ul>
+  <li><b>样本外复核</b>：全部主结论在独立时间段上复核，开发段与复核段不重叠；</li>
+  <li><b>参数敏感性</b>：窗口长度、持有期、分位阈值做网格测试，报告结论的稳定区间而非单点最优；</li>
+  <li><b>消融实验</b>：逐项移除成本、约束、因子组，量化每项对结论的贡献；</li>
+  <li><b>多重检验</b>：以t ≥ 3作为新因子的内部显著线（Harvey et al., 2016），并报告FDR校正后的通过率。</li>
+</ul>
+
+<h3>已有工作基础</h3>
+
+<table>
+<caption>表2　课题组已完成的基础与本研究的关系</caption>
+<tr><th style="width:16%">模块</th><th>已完成的工作</th></tr>
+<tr><td>数据层</td><td>TickPool格式反推完成；单日4.37亿条稳定读取；索引读取加三路归并后单日47秒</td></tr>
+<tr><td>因子层</td><td>C++因子流水线，10天82个因子用时30秒；已枚举约1,800个候选，最强模板因子在独立60天样本上|IC|约0.052</td></tr>
+<tr><td>模型层</td><td>线性、树模型与序列模型的训练与滚动评估流程已跑通</td></tr>
+<tr><td>回测层</td><td>逐tick模拟的八个组件已实现；分钟级组合回测与逐tick模拟均可运行</td></tr>
+<tr><td>工程规范</td><td>C++负责逐tick计算、Python负责统计与报告，同任务较纯Python快约19倍</td></tr>
+</table>
+
+<p>这些基础意味着本研究不需要从零搭建基础设施，可以把时间集中在测试体系的设计、大规模实验的执行与结论的稳健性上。</p>
+
+<h3>关键困难与解决方案</h3>
+
+<p><b>（1）数据规模与算力。</b>全量逐笔数据达TB级，单盘读取约240 MB/s，一次全量重放需要数小时。解决方案：严格遵守“原始tick只扫一遍”，中间层按日落盘并复用；批量任务放在夜间；按股票分片并行，控制并发避免I/O争抢。</p>
+
+<p><b>（2）订单簿重放的精度边界。</b>窗口开始前已挂订单缺少订单号，撤单记录不总是指向原委托，部分成交缺一侧订单号。解决方案：以十档逐档对账为核心验收目标；订单级队列明确定位为近似量，并在所有使用该量的结论中标注不确定性；无法达到验收标准时，降级为“重放误差分析 + 十档口径实验”，不把近似量当作精确量使用。</p>
+
+<p><b>（3）过拟合与多重检验。</b>千级因子、多窗口、多持有期会系统性放大伪发现（McLean &amp; Pontiff, 2016）。解决方案：预注册主假设与主指标；报告全部尝试；内部显著线提高到t ≥ 3；主结论必须在独立样本上复核。</p>
+
+<p><b>（4）成本吞噬结论。</b>前期实测显示，一分钟反转在往返13–19个基点成本下净收益为负。解决方案：成本从L1起参与筛选；所有收益结论同时报告换手、成本与盈亏平衡点；不报告未扣成本的“毛收益”作为主结果。</p>
+
+<p><b>（5）容量与资金使用率。</b>逐tick模拟显示期末现金占比在2.5%–63.8%之间波动，收益率不能线性放大；分钟级回测的容量中位数约15万元。解决方案：容量与资金使用率作为一等结果；不把“小仓位高收益”当作策略可行性的证据。</p>
+
+<p><b>（6）字段语义不确定性。</b>沪深两所的事件类型、成交标志含义不同，且缺少官方数据字典。解决方案：以匹配率为准则函数做消融标定，每个语义判断附“换一种解释后结果如何”的对照；无法标定的字段写入局限，不臆测。</p>
+
+<h3>可行性分析</h3>
+
+<p><b>数据可行性。</b>已获得427个交易日（2025-01-07至2026-10-20）的全市场Level-2数据，含逐笔委托、逐笔成交与十档快照，覆盖完整的牛熊与不同流动性状态，足以支撑样本内外的严格切分。</p>
+
+<p><b>技术可行性。</b>读取、因子计算、模型训练与逐tick回测四条链路均已跑通并有性能实测；C++与Python的分工已固定，新增实验主要是配置与编排，不是重新开发。</p>
+
+<p><b>时间可行性。</b>按培养方案第9–14周排期，L0在第9–11周完成并冻结，L1–L3在第11–13周执行，第14周答辩；关键路径只有L0，其余各层可并行或裁剪。</p>
+
+<p><b>风险可控性。</b>每个主要风险都配有可执行的降级路径，而不是笼统的“加强关注”：例如L0未达验收标准时，研究自动收缩为“重放误差分析 + 十档口径的因子与策略测试”，仍能形成完整、诚实的论文。</p>
+
+<h3>所需资源</h3>
+
+<p><b>数据资源。</b>课题组已获得2025-01-07至2026-10-20共427个交易日的全市场Level-2数据，含逐笔委托、逐笔成交与十档快照，单日约19.5 GB有效数据、全量约8.5 TB。数据已落盘并有稳定的读取管线，不需额外采购。</p>
+
+<p><b>计算资源。</b>现有服务器提供多核CPU与约3.8 TB可用磁盘；单盘顺序读取约240 MB/s，单日索引读取加三路归并约47秒，单日全量重放约2.5分钟。因子计算、模型训练与逐tick回测均可在现有机器上完成，不需要GPU集群；批量任务安排在夜间运行，按股票分片并行并限制并发，避免I/O争抢。</p>
+
+<p><b>软件资源。</b>数据读取与逐tick计算用C++17实现，统计、模型与报告用Python；订单流与因子查询使用ClickHouse；论文以XeLaTeX加Biber排版，版式沿用学院官方模板。</p>
+
+<p><b>人力与时间。</b>研究由本人独立完成，导师按周指导；实验与写作按第9–14周排期推进，关键路径只有L0口径冻结，其余各层可并行或裁剪。</p>
+
+<h3>工作量与进度安排</h3>
+
+<table>
+<caption>表3　实施进度（第9–14周）</caption>
+<tr><th style="width:8%">周次</th><th style="width:12%">日期</th><th>工作内容与交付物</th></tr>
+<tr><td>9</td><td>10-28</td><td>L0口径冻结：数据读取、面板构建、标签与切分规则；交付：口径文档 + 面板样例</td></tr>
+<tr><td>10</td><td>11-04</td><td>订单簿重放的分所标定与逐事件对账；交付：沪深分开的匹配率矩阵</td></tr>
+<tr><td>11</td><td>11-11</td><td>L0验收与冻结；L1因子库接入与首轮筛选；交付：验收报告 + 因子筛选结果（第一版）</td></tr>
+<tr><td>12</td><td>11-18</td><td>L1四层漏斗完成；L2单模型与组合测试；交付：合格因子池 + 模型样本外结果</td></tr>
+<tr><td>13</td><td>11-25</td><td>L3回测与执行评估、消融与稳健性；论文初稿；交付：初稿 + 全部图表</td></tr>
+<tr><td>14</td><td>12-04</td><td>答辩；按意见修订终稿</td></tr>
+</table>
+
+<p>排期遵循三条原则：<b>口径优先</b>——L0不冻结不启动上层实验；<b>实验可裁剪</b>——L1与L2为核心，L3的扩展实验按余量取舍；<b>每周可交付</b>——每周都有可检验的产物，避免最后返工。</p>
+
+<h3>预期成果</h3>
+
+<ol>
+  <li><b>一套分层测试栈</b>：L0–L3的定义、接口、评价指标与通过标准，配套可复现的代码与配置；</li>
+  <li><b>一份大规模因子实证</b>：约千级候选因子的统一口径筛选结果，包含通过率、衰减特征与成本后的有效性边界；</li>
+  <li><b>一份执行校准结果</b>：快照假设与订单簿假设的并排对照，量化成交率、逆向选择成本与容量对策略收益的修正；</li>
+  <li><b>一张work/不work边界表</b>：明确哪些策略在何种成本、容量与流动性条件下成立，哪些不成立。</li>
+</ol>
+
+<p><b>预期结论形态。</b>按文献先验与前期实测，多数分钟频因子在扣除成本后不显著，少数低频、低换手因子可能保留增量；执行假设的修正会系统性降低高换手策略的收益估计。这些是待检验的预期而非结论——若实证方向相反，同样如实报告并讨论原因。</p>
+
+<h2>三、论文写作计划（Thesis Writing Plan）</h2>
+
+<table>
+<caption>表4　写作计划</caption>
+<tr><th style="width:8%">序号</th><th>工作内容</th><th style="width:26%">时间</th></tr>
+<tr><td>1</td><td>完成数据读取、面板构建与标签口径冻结</td><td>2026-10-21 至 10-27</td></tr>
+<tr><td>2</td><td>完成文献综述，确定分层测试框架与研究假设</td><td>2026-10-21 至 10-28</td></tr>
+<tr><td>3</td><td>订单簿重放的分所标定与逐事件对账</td><td>2026-10-28 至 11-10</td></tr>
+<tr><td>4</td><td>L0 验收与冻结，输出统一面板与中间层</td><td>2026-11-04 至 11-11</td></tr>
+<tr><td>5</td><td>L1 因子库接入与四层筛选，产出合格因子池</td><td>2026-11-11 至 11-18</td></tr>
+<tr><td>6</td><td>L2 单模型与组合测试，完成滚动样本外评估</td><td>2026-11-18 至 11-24</td></tr>
+<tr><td>7</td><td>L3 回测与日内 T+0 执行评估，两套成交假设并排</td><td>2026-11-18 至 11-25</td></tr>
+<tr><td>8</td><td>消融与稳健性检验，主结论在独立样本复核</td><td>2026-11-25 至 12-01</td></tr>
+<tr><td>9</td><td>论文初稿完成，图表统一并送审</td><td>2026-11-25 至 12-01</td></tr>
+<tr><td>10</td><td>答辩、按意见修改并提交终稿</td><td>2026-12-02 至 12-18</td></tr>
+<tr><td colspan="3">备注：第 11 周为 L0 冻结节点；未达验收则按降级方案收缩实验范围。</td></tr>
+</table>
+
+<h2>参考文献</h2>
+
+<p class="ref">Albers, J., Cucuringu, M., Howison, S., &amp; Shestopaloff, A. Y. (2025). The Market Maker’s Dilemma: Navigating the Fill Probability vs. Post-Fill Returns Trade-Off. arXiv:2502.18625.</p>
+<p class="ref">Andersen, T. G., &amp; Bollerslev, T. (1998). Answering the Skeptics: Yes, Standard Volatility Models Do Provide Accurate Forecasts. International Economic Review, 39(4), 885–905.</p>
+<p class="ref">Avellaneda, M., &amp; Stoikov, S. (2008). High-Frequency Trading in a Limit Order Book. Quantitative Finance, 8(3), 217–224.</p>
+<p class="ref">Bailey, D. H., Borwein, J. M., López de Prado, M., &amp; Zhu, Q. J. (2017). The Probability of Backtest Overfitting. Journal of Computational Finance, 20(4), 39–69.</p>
+<p class="ref">Barndorff-Nielsen, O. E., &amp; Shephard, N. (2004). Power and Bipower Variation with Stochastic Volatility and Jumps. Journal of Financial Econometrics, 2(1), 1–37.</p>
+<p class="ref">Bouchaud, J.-P., Farmer, J. D., &amp; Lillo, F. (2009). How Markets Slowly Digest Changes in Supply and Demand. In T. Hens &amp; K. Schenk-Hoppé (Eds.), Handbook of Financial Markets: Dynamics and Evolution (pp. 57–160). Amsterdam: Elsevier.</p>
+<p class="ref">Chen, H., &amp; Qi, R. (2026). LLM-Assisted Semantic Pruning for Genetic Programming-Based Alpha Factor Discovery. Applied Sciences, 16(12), 6231.</p>
+<p class="ref">Cont, R., Kukanov, A., &amp; Stoikov, S. (2014). The Price Impact of Order Book Events. Journal of Financial Econometrics, 12(1), 47–88.</p>
+<p class="ref">Easley, D., Kiefer, N. M., O’Hara, M., &amp; Paperman, J. B. (1996). Liquidity, Information, and Infrequently Traded Stocks. The Journal of Finance, 51(4), 1405–1436.</p>
+<p class="ref">Easley, D., &amp; O’Hara, M. (1992). Time and the Process of Security Price Adjustment. The Journal of Finance, 47(2), 577–605.</p>
+<p class="ref">Fischer, T., &amp; Krauss, C. (2018). Deep Learning with Long Short-Term Memory Networks for Financial Market Predictions. European Journal of Operational Research, 270(2), 654–669.</p>
+<p class="ref">Glosten, L. R., &amp; Milgrom, P. R. (1985). Bid, Ask and Transaction Prices in a Specialist Market with Heterogeneously Informed Traders. Journal of Financial Economics, 14(1), 71–100.</p>
+<p class="ref">Gu, S., Kelly, B., &amp; Xiu, D. (2020). Empirical Asset Pricing via Machine Learning. The Review of Financial Studies, 33(5), 2223–2273.</p>
+<p class="ref">Gu, Y., &amp; Mandic, D. (2026). TensorLOB: Structure-Preserving Tensor Learning for Limit Order Book Forecasting. arXiv:2611.02866.</p>
+<p class="ref">Hafsi, Y., Lillo, F., &amp; Szymanski, G. (2026). Calibration of Passive Market Impact with a Queue-Sensitive Propagator Model. arXiv:2610.38442.</p>
+<p class="ref">Harvey, C. R., Liu, Y., &amp; Zhu, H. (2016). … and the Cross-Section of Expected Returns. The Review of Financial Studies, 29(1), 5–68.</p>
+<p class="ref">Hasbrouck, J. (1991). Measuring the Information Content of Stock Trades. The Journal of Finance, 46(1), 179–207.</p>
+<p class="ref">He, Y. (2026). Auditing LLM Alpha-Factor Mining: Metric Provenance and Full-Cohort Reanalysis. arXiv:2610.29500.</p>
+<p class="ref">Kakushadze, Z. (2016). 101 Formulaic Alphas. Wilmott, 2016(84), 72–81.</p>
+<p class="ref">Krauss, C., Do, X. A., &amp; Huck, N. (2017). Deep Neural Networks, Gradient-Boosted Trees, Random Forests: Statistical Arbitrage on the S&amp;P 500. European Journal of Operational Research, 259(2), 689–702.</p>
+<p class="ref">Kyle, A. S. (1985). Continuous Auctions and Insider Trading. Econometrica, 53(6), 1315–1335.</p>
+<p class="ref">Lillo, F., Farmer, J. D., &amp; Mantegna, R. N. (2003). Master Curve for Price-Impact Function. Nature, 421(6919), 129–130.</p>
+<p class="ref">López de Prado, M. (2018). Advances in Financial Machine Learning. Hoboken, NJ: John Wiley &amp; Sons.</p>
+<p class="ref">López de Prado, M., Simonian, J., Fabozzi, F. A., &amp; Fabozzi, F. J. (2025). Enhancing Markowitz’s Portfolio Selection Paradigm with Machine Learning. Annals of Operations Research, 346(1), 319–340.</p>
+<p class="ref">McLean, R. D., &amp; Pontiff, J. (2016). Does Academic Research Destroy Stock Return Predictability? The Journal of Finance, 71(1), 5–32.</p>
+<p class="ref">Parlour, C. A. (1998). Price Dynamics in Limit Order Markets. The Review of Financial Studies, 11(4), 789–816.</p>
+<p class="ref">Shi, H., Song, W., Zhang, X., Shi, J., Luo, C., Ao, X., Arian, H., &amp; Seco, L. A. (2025). AlphaForge: A Framework to Mine and Dynamically Combine Formulaic Alpha Factors. Proceedings of the AAAI Conference on Artificial Intelligence, 39(12), 12524–12532.</p>
+<p class="ref">Stoikov, S. (2018). The Micro-Price: A High-Frequency Estimator of Future Prices. Quantitative Finance, 18(7), 1163–1180.</p>
+<p class="ref">Su, C., Cai, Z., Tian, Y., Chang, Z., Zheng, Z., &amp; Song, Y. (2025). Diffusion Models for Time Series Forecasting: A Survey. arXiv:2507.14507.</p>
+<p class="ref">Tang, Z., Chen, Z., Yang, J., Mai, J., Zheng, Y., Wang, K., Chen, J., &amp; Lin, L. (2025). AlphaAgent: LLM-Driven Alpha Mining with Regularized Exploration to Counteract Alpha Decay. Proceedings of the 31st ACM SIGKDD Conference, 2813–2822.</p>
+<p class="ref">Tu, Z., Xiang, X., &amp; Huang, J. (2026). Adjustment-Anchor Dependence in Formulaic Alpha Languages: A Certified Grammar and a Re-Anchoring Audit. arXiv:2611.07751.</p>
+<p class="ref">Wang, S., Yuan, H., Zhou, L., Ni, L., Shum, H.-Y., &amp; Guo, J. (2025a). Alpha-GPT: Human-AI Interactive Alpha Mining for Quantitative Investment. Proceedings of EMNLP 2025: System Demonstrations, 196–206.</p>
+<p class="ref">Wang, Z., Kong, F., Feng, S., Wang, M., Yang, X., Zhao, H., Wang, D., &amp; Zhang, Y. (2025b). Is Mamba Effective for Time Series Forecasting? Neurocomputing, 619, 129178.</p>
+<p class="ref">Wang, Z.-H., Lang, Z.-Y., Li, Y.-Y., Lan, Q.-Y., &amp; Piao, Y.-S. (2026). CosmosAlpha: Multi-Relational Graph Search with Pareto-Guided Exploration for LLM-Driven Alpha Mining. arXiv:2611.04555.</p>
+<p class="ref">Yang, X., Liu, W., Zhou, D., Bian, J., &amp; Liu, T.-Y. (2020). Qlib: An AI-oriented Quantitative Investment Platform. arXiv:2009.11189.</p>
+<p class="ref">Zhang, J., Liu, S., Zhang, T., &amp; Shi, Y. (2025). A Survey on Large Language Model-based Alpha Mining. Frontiers of Information Technology &amp; Electronic Engineering, 26(10), 1809–1821.</p>
+<p class="ref">Zhao, C., Chen, Y., Wu, L., Dai, Y., Chen, E., Wu, L., &amp; Zhang, R. (2025). High-Frequency Liquidity in the Chinese Stock Market: Measurements, Patterns, and Determinants. Pacific-Basin Finance Journal, 90, 102681.</p>
+<p class="ref">石川, 刘洋溢, 连祥斌. (2020). 因子投资：方法与实践. 北京: 电子工业出版社.</p>
+
+<div class="tip">
+提示：本文件是 Word 可直接打开的 HTML。用 Word 打开后“另存为 → Word 文档 (*.docx)”即可获得可编辑的 .docx。<br>
+本版正文与 <code>overleaf_project/chapter/*.tex</code> 一致（2026-11-07 版本），引用已按作者-年份样式渲染；最终提交仍以 XeLaTeX + Biber 编译的 PDF 为准。
+</div>
+
+</body>
+</html>

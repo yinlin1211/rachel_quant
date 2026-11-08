@@ -1,0 +1,42 @@
+[claude-code:unrecognized_model] {"model":"deepseek-v4.1-flash","query_source":"sdk"}
+已完成并落盘。
+
+## 结果
+
+**新读法单日 36.74 秒**（复跑 38.61 秒），达到 45 秒目标，读取 MD+TS 共 207,882,457 条，5.66 M 条/秒。
+
+| 读法 | 单日 |
+|---|---:|
+| 新：`lquant_tick_pool` 按 cidx 读取 | **36.74 s** |
+| 旧 B：当前 `pipeline/bin/panel_tool`（get_tick 全量扫描 + 直接分桶） | 47.76 s |
+| 旧 A：文档中的 172 s 基线（全量扫描+排序） | 本次无法复现 |
+
+**关于 172 秒基线**：当前 `panel_tool` 跑同一天只要 47.76 秒，`pipeline/logs/panel_timing.txt` 里 20260105 也是 50 秒。172 秒应对应更早的排序实现，当前二进制已不存在。因此报告里分开写了两个口径：相对文档基线 4.68×，相对当前实际旧读法 **1.30×**，没有混用。
+
+## 对账
+
+- **1,251,120 / 1,251,120 行逐位一致，100%**
+- 12 个字段最大绝对误差全部为 **0**，不一致样本：无
+- 三个文件 md5 相同：`e5696d03b199228c0dd7aa4493fe2f9e`
+- sum(nMd)、sum(nTs)、成交量、成交额总量全部完全相等
+- 11,040 行价格 NaN = 46 只无数据股票 × 240 分钟，两侧一致
+
+关键口径：OHLC 用 MD 买卖一档中间价，量额用 TS，240 槽只保留 09:30–11:29 / 13:00–14:59，缺失分钟前向填充，行序分钟×股票。15:00 后数据被排除，正好解释原始条数与面板条数的差额。
+
+## 交付物
+
+| 文件 | 内容 |
+|---|---|
+| `src/fast_reader.cpp` | 可编译可运行，按 cidx 读取聚合 |
+| `tools/reconcile.py` | 逐字段/逐位对账 |
+| `out/20260105.fast.panel` | 60,053,760 B，100% 一致 |
+| `out/fast_reader.log` | 条数与分阶段耗时 |
+| `out/reconcile_20260105.txt` | 完整对账输出 |
+| `READER.md` | 耗时对比、对账、接入建议、复现命令 |
+| `PROGRESS.md` | 带时间戳的过程记录 |
+
+补充两点实际踩坑：编译必须加 `-ldl`；库引用了未定义的 `LQUANTSELFLog::logger`，使用方需要自行定义。`lquant_data_api::load_tickpool` 需要先构造 XmlNode 单例，本次直接用了底层 `lquant_tick_pool::load(path)`，`get_last_didx()` 与文件头总条数吻合。
+
+未修改 `pipeline/` 下任何文件；旧路径基准只读运行，输出写在 `/tmp/oldpanel`。建议接入前用 `reconcile.py` 再批量验证 5–10 个交易日。
+
+收到。被终止的后台任务是早期找结构体定义的宽范围搜索，结构体已通过 `lquantTick.hpp` 末尾的 typedef 确认（`lquant_market_data_t = TDFDefine_MarketData`），不影响任何结论或产物。交付物均已落盘并验证完毕。

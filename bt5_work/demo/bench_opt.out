@@ -1,0 +1,4 @@
+[BENCH] mode=opt ticks=427688458 basket=94981793 loop_sec=38.937 per_tick_us=0.091
+file name :/opt/bar_data/TickPool/20260105.dat
+tkr_filename name :/opt/bar_data/Meta/tkr.txt
+volume:0/8458300, amount:0.00/104378078.95, profit:0.00

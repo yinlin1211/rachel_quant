@@ -1,0 +1,5 @@
+date=20260105 stocks=5213
+records: md=21470995 ts=186411462 total=207882457 (used md=21071668 ts=184612075)
+load=0.000s md=8.235s ts=28.349s fill=0.003s write=0.100s total=36.739s
+throughput=5.66 M records/s (read), 5.60 M records/s (used)
+missing_filled=950 no_data_stocks=46 output=out/20260105.fast.panel

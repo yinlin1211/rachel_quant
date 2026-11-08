@@ -1,0 +1,27 @@
+fast=/home/intern2/rachel/回测实盘/out/20260105.fast.panel rows=1251120
+ref =/home/intern2/rachel/pipeline/panels/20260105.panel rows=1251120
+compared_rows=1251120
+identical_rows=1251120 ratio=100.000000%
+int_fields_identical_rows=1251120 ratio=100.000000%
+nan_price_rows=11040
+sum_nMd fast=21071668 ref=21071668 diff=0
+sum_nTs fast=184612075 ref=184612075 diff=0
+sum_volume fast=438085174203.000 ref=438085174203.000 diff=0.000
+sum_amount fast=2517861349777.000 ref=2517861349777.000 diff=0.000
+
+field       max_abs_err     bad_rows
+nTime                 0            0
+minute                0            0
+cidx                  0            0
+nMd                   0            0
+nTs                   0            0
+open                  0            0
+high                  0            0
+low                   0            0
+close                 0            0
+vwap                  0            0
+volume                0            0
+amount                0            0
+
+first_mismatches (cidx, minute, nTime, field, fast, ref):
+  (none)

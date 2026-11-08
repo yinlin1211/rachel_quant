@@ -27,3 +27,53 @@ pipeline/bin/
 cpp_alpha/calc_day
 cpp_alpha/cache_tool
 results/search/
+
+# ========== 2026-11-08 追加：凭证与大数据 ==========
+# 凭证（绝不提交）：Overleaf git token
+overleaf.txt
+
+# 批量中间数据：只保留脚本与配置
+ofz/*.csv
+ofz/*.log
+pipeline/panel_books/*.panelbook
+
+# 基准与大文件产物
+benchmarks/*/
+*.log.tmp
+*.core
+
+# bt5 接入：保留源码/脚本/小结果，排除大信号与回放明细
+bt5_ab/signals_*.csv
+bt5_ab/scores_*.csv
+bt5_ab/sim_replay*
+bt5_ab/run/
+bt5_demo/tradelog.txt_*
+bt5_demo/*.o
+bt5_demo/demo
+bt5_ab/make_signals
+bt5_ab/make_signal_shm
+
+# 嵌套 git 仓库（Overleaf 开题报告有自己的远端，单独推送）
+overleaf_project/
+
+# panel_books 的派生产物（只保留 README 与字段字典）
+pipeline/panel_books/*.csv
+pipeline/panel_books/*.events_heatmap.txt
+
+# 版本化共享库（*.so 规则匹配不到 .so.5 这类）
+*.so.*
+bt5_work/lib/
+gh_stage/bt5_engine/lib/
+bt5_work/demo/demo
+bt5_work/demo/*.o
+bt5_work/demo/tradelog.txt_*
+bt5_work/demo/*.csv
+
+# 编译产物
+*.o
+
+# 可执行产物
+bt5_work/demo/demo_opt
+bt5_work/demo/demo_base
+gh_stage/bt5_engine/demo/demo
+gh_stage/bt5_engine/demo/*.o

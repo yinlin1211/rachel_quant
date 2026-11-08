@@ -1,0 +1,6 @@
+# RSI(14) on minute mid-price close (SMA approximation; Wilder's RSI uses SMMA).
+# Format: id|expr, ready for:
+#   bin/alpha_expr panels factors_rsi14.txt out.csv <dates...>
+rsi14|sub(100,div(100,add(1,div(ts_mean(max(sub(close,delay(close,1)),0),14),add(ts_mean(max(sub(delay(close,1),close),0),14),0.000001)))))
+rsi14_neg|neg(sub(100,div(100,add(1,div(ts_mean(max(sub(close,delay(close,1)),0),14),add(ts_mean(max(sub(delay(close,1),close),0),14),0.000001))))))
+rsi6|sub(100,div(100,add(1,div(ts_mean(max(sub(close,delay(close,1)),0),6),add(ts_mean(max(sub(delay(close,1),close),0),6),0.000001)))))

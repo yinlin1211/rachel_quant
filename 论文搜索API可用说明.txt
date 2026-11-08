@@ -1,0 +1,293 @@
+论文搜索 API 可用说明
+======================
+
+用途
+----
+本文档只记录论文检索、论文元数据和 DOI 核验相关接口。
+不要把通用网页搜索、图片搜索、新闻搜索或 LLM 接口当作论文数据库 API。
+
+推荐顺序
+--------
+1. OpenAlex：首选综合论文检索，无需 API key。
+2. arXiv：检索预印本，无需 API key。
+3. Crossref：检索或核验 DOI 元数据。
+4. DataCite：检索或核验 DOI 元数据，尤其适合 arXiv DOI。
+5. Semantic Scholar：功能丰富，但当前容易触发限流；失败时使用 OpenAlex/arXiv。
+
+
+一、OpenAlex
+------------
+
+用途：
+- 综合论文搜索
+- 论文标题、作者、年份、期刊、DOI、引用数
+- 支持年份过滤
+
+基础地址：
+https://api.openalex.org/works
+
+无需 API key。
+
+最小请求：
+
+curl 'https://api.openalex.org/works?search=transformer&per-page=5'
+
+带年份和字段筛选：
+
+curl 'https://api.openalex.org/works?search=transformer&filter=from_publication_date:2020-01-01&per-page=10&select=id,title,authorships,publication_year,doi,cited_by_count'
+
+常用参数：
+- search：检索词
+- per-page：返回数量，当前项目代码最多使用 50
+- filter：例如 from_publication_date:2020-01-01
+- select：限制返回字段
+- mailto：礼貌池邮箱，可提高稳定性
+
+本次检查：
+- HTTP 200
+- 当前可用
+
+
+二、arXiv
+---------
+
+用途：
+- 检索 arXiv 预印本
+- 获取标题、作者、摘要、分类、发布日期
+- 按 arXiv ID 获取单篇论文
+- 下载论文 PDF
+
+API 地址：
+https://export.arxiv.org/api/query
+
+无需 API key。
+
+最小请求：
+
+curl 'https://export.arxiv.org/api/query?search_query=all:%22transformer%22&max_results=5'
+
+按分类检索：
+
+curl 'https://export.arxiv.org/api/query?search_query=all:%22speech%20recognition%22%20AND%20cat:cs.CL&start=0&max_results=10&sortBy=relevance'
+
+常用参数：
+- search_query：检索条件
+- start：分页起点
+- max_results：返回数量
+- sortBy：relevance、submittedDate、lastUpdatedDate
+- sortOrder：ascending 或 descending
+
+注意：
+- arXiv 要求请求之间保持间隔，批量检索不要高频并发。
+- arXiv 主要是预印本，不等同于正式发表版本。
+
+本次检查：
+- HTTP 200
+- 当前可用
+
+
+三、Crossref
+------------
+
+用途：
+- 按标题或关键词检索 DOI 元数据
+- 根据 DOI 获取论文标题、作者、期刊、年份等
+- 当前项目主要用于 DOI 核验，也可以用于论文元数据检索
+
+基础地址：
+https://api.crossref.org/works
+
+无需 API key。
+
+按标题检索：
+
+curl 'https://api.crossref.org/works?query.title=transformer&rows=5'
+
+按 DOI 查询：
+
+curl 'https://api.crossref.org/works/10.1038%2Fs41586-020-2649-2'
+
+常用参数：
+- query.title：标题检索
+- query：通用关键词检索
+- rows：返回数量
+- offset：分页偏移
+
+本次检查：
+- HTTP 200
+- 当前可用
+
+
+四、DataCite
+------------
+
+用途：
+- DOI 元数据搜索和核验
+- 适合作为 Crossref 的补充
+- arXiv DOI（例如 10.48550/arXiv.*）通常可在此查询
+
+基础地址：
+https://api.datacite.org/dois
+
+无需 API key。
+
+按关键词检索：
+
+curl 'https://api.datacite.org/dois?query=transformer&page%5Bsize%5D=5'
+
+按 DOI 查询：
+
+curl 'https://api.datacite.org/dois/10.48550/arXiv.1706.03762'
+
+常用参数：
+- query：关键词
+- page[size]：返回数量
+- page[number]：页码
+
+本次检查：
+- HTTP 200
+- 当前可用
+
+
+五、Semantic Scholar
+--------------------
+
+用途：
+- 论文搜索
+- 单篇论文详情
+- 作者搜索
+- 参考文献和被引文献
+- 引用数、摘要、开放 PDF 等字段
+
+官方基础地址：
+https://api.semanticscholar.org/graph/v1
+
+论文搜索端点：
+https://api.semanticscholar.org/graph/v1/paper/search
+
+官方鉴权：
+如果有官方 API key，使用：
+
+  x-api-key: <SEMANTIC_SCHOLAR_API_KEY>
+
+最小请求：
+
+curl 'https://api.semanticscholar.org/graph/v1/paper/search?query=transformer&limit=5&fields=title,year,url,authors' \
+  -H 'x-api-key: <SEMANTIC_SCHOLAR_API_KEY>'
+
+常用端点：
+- /graph/v1/paper/autocomplete
+- /graph/v1/paper/search
+- /graph/v1/paper/{paper_id}
+- /graph/v1/paper/{paper_id}/references
+- /graph/v1/paper/{paper_id}/citations
+- /graph/v1/author/search
+- /graph/v1/author/{author_id}
+- /graph/v1/author/{author_id}/papers
+
+常用参数：
+- query：检索词
+- fields：例如 title,abstract,year,url,authors,citationCount
+- limit：论文搜索通常最多 100
+- offset：分页起点
+- year：例如 2020-2024
+- openAccessPdf：只筛选公开 PDF
+
+目录中还记录了一个代理：
+https://s2api.ominiai.cn/s2
+
+代理鉴权方式：
+
+  Authorization: Bearer <S2API_SK>
+
+当前代理密钥：
+
+  S2API_SK=sk-5ZQqOo4PLdgzZNuGktRvw53uezUNpgmcZzAVtbqdwF5tvVH5
+
+代理路径仍然使用：
+
+  /graph/v1/paper/search
+
+当前检查结果：
+- 官方端点：HTTP 429，当前被限流
+- 目录中的代理：HTTP 403，当前不可用
+- 不要把 Semantic Scholar 作为唯一检索源
+- 先使用 OpenAlex 和 arXiv；有可用 S2 key 或代理恢复后再启用
+
+
+六、AutoResearchClaw 统一搜索接口
+---------------------------------
+
+本地代码位置：
+researchclaw/literature/search.py
+
+公共函数：
+
+  search_papers(query, limit, sources, year_min, deduplicate, s2_api_key)
+
+实际支持的 sources：
+
+  openalex
+  semantic_scholar
+  arxiv
+
+Python 示例：
+
+  from researchclaw.literature.search import search_papers
+
+  papers = search_papers(
+      "transformer speech recognition",
+      limit=20,
+      sources=("openalex", "arxiv"),
+      year_min=2020,
+      deduplicate=True,
+  )
+
+推荐默认配置：
+
+  sources=("openalex", "arxiv")
+
+如果需要尝试 Semantic Scholar：
+
+  papers = search_papers(
+      "transformer speech recognition",
+      limit=20,
+      sources=("openalex", "semantic_scholar", "arxiv"),
+      s2_api_key="<SEMANTIC_SCHOLAR_API_KEY>",
+  )
+
+统一接口会：
+- 调用多个来源
+- 按 DOI、arXiv ID 和标题去重
+- 按引用数和年份排序
+- 某个来源失败时尝试缓存或继续使用其他来源
+
+
+七、当前结论
+------------
+
+可直接使用：
+- OpenAlex
+- arXiv
+- Crossref
+- DataCite
+
+暂时不稳定或不可用：
+- Semantic Scholar 官方接口：当前 429
+- Semantic Scholar 代理：当前 403
+
+最稳妥的论文检索组合：
+
+  OpenAlex + arXiv
+
+需要 DOI 核验时追加：
+
+  Crossref + DataCite
+
+安全要求：
+- 不要把真实 API key 写入代码、公开文档或 Git。
+- 使用环境变量，例如 SEMANTIC_SCHOLAR_API_KEY。
+- 本文档只使用占位符，没有保存真实密钥。
+
+验证时间：
+2026-11-06

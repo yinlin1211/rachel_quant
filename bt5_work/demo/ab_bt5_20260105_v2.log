@@ -1,0 +1,15 @@
+file name :/opt/bar_data/TickPool/20260105.dat
+tkr_filename name :/opt/bar_data/Meta/tkr.txt
+failed to open shm:/home/intern2/rachel/bt5_demo/scoreThreshold.csv
+shm_open: No such file or directory
+System error, Stack trace:
+0 /opt/datas/lf_basket_trade/lib/liblf_utillq.so(_ZN7lfquant18SystemErrorHandlerEi+0x3c) [0x7f4d4791a5dc] 
+1 /lib64/libc.so.6(+0x36400) [0x7f4d46811400] 
+2 ./demo() [0x423274] 
+3 ./demo() [0x41dc21] 
+4 ./demo() [0x412572] 
+5 /opt/datas/lf_basket_trade/lib/liblf_bt5.so(_Z7bt_mainPFPN7lfquant19quant_strategy_baseEvEiPPc+0x81c) [0x7f4d476978ec] 
+6 /opt/datas/lf_basket_trade/lib/liblf_bt5.so(_ZN7lfquant9main_implEPFPNS_19quant_strategy_baseEvEiPPc+0x28a) [0x7f4d4768659a] 
+7 ./demo() [0x442514] 
+8 /lib64/libc.so.6(__libc_start_main+0xf5) [0x7f4d467fd555] 
+9 ./demo() [0x40ef99] 

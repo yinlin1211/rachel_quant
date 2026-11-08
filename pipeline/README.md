@@ -17,6 +17,8 @@ pipeline/
 ├── tools/
 │   ├── summarize_ic.py   # 从 ic_stats.csv 汇总 IC（最终结果，几十毫秒）
 │   └── analyse_a101.py   # 从 .dat 重算 IC（备用验证，慢但独立）
+│   └── alpha101_integrity.py  # 检查 82 个 Alpha101 的样本数/覆盖率/日 IC
+│   └── alpha101_value_check.py # 首日 82 条 C++ vs 独立 Pandas 参考值级对比
 ├── bin/                  # 编译产物（panel_tool, alpha101）
 ├── panels/               # 分钟面板，60 MB/天
 ├── out_10d/              # 因子输出 .mkt/.dat
@@ -35,9 +37,10 @@ panels/YYYYMMDD.panel                       60 MB/天，48 字节/行
 out/YYYYMMDD.mkt   每分钟每股 4×int32（时间, 分钟, 股票, 中间价）
 out/YYYYMMDD.dat   每分钟每股 82×float32（因子值）
 out/alphaInfo.txt  股票数, 因子数, 因子名
-        │  analyse_a101.py
+        │  analyse_a101.py / alpha101_value_check.py
         ▼
 out/result_alpha101.csv   IC均值/std/IR/IC>0占比/合并IC/覆盖率
+results/alpha101_value_check_20261031.csv  82 条首日值级相关性矩阵
 ```
 
 ### 面板行格式（PanelRow，48 字节）
