@@ -182,8 +182,31 @@ export ANTHROPIC_MODEL=deepseek-v4.1-flash
 if [ -f "$HOME/.dsh-env.sh" ]; then . "$HOME/.dsh-env.sh"; fi
 ```
 
-**实测（2026-11-08 18:11）**：从 intern11 直接 POST `/v1/messages` 返回 **HTTP 200**，
-模型 `deepseek-v4.1-flash` 正常响应（input 37 / output 13 tokens）。
+**三层验证（2026-11-08 20:05 补做）**：
+
+| 层次 | 检查 | 结果 |
+|---|---|---|
+| ① 静态配置 | `dsh web --dump-config` 看组合后的树 | `agent-default-model: provider=anthropic, model=deepseek-v4.1-flash`；`llm-pi-ai.providers.anthropic.baseURL=https://opencode.ai/inference/go/anthropic` ✅ |
+| ② 运行时环境 | 启动 web 后读 `/proc/<pid>/environ` | `ANTHROPIC_BASE_URL` / `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_MODEL` 各 1 条；`LD_LIBRARY_PATH` **0 条** ✅ |
+| ③ 接口可达 | 从 intern11 直接 POST `/v1/messages` | **HTTP 200**，返回 `deepseek-v4.1-flash` 的正常响应（input 37 / output 13 tokens）✅ |
+
+> 未做的一层：真正在浏览器里开一个会话看回复。这一层需要客户端交互，
+> 但它以下的所有环节（配置、凭证、网络）都已逐层验证。
+
+### 一个容易踩的坑：`dsh headless` 不是配好的
+
+`dsh --help` 的示例里写着 `dsh headless "run the tests"`，但**`headless` profile 默认是空的**：
+
+```
+MISSING_CREDENTIAL: llm-deepseek: no API key for provider route "deepseek-official"
+```
+
+这不是配置错误，**intern2 上同样如此**（`~/.dsh/profiles/headless/cordis.patch.yml` 内容是 `[]`）。
+你实际使用的是 **`web` profile**，它才是配好 OpenCode 的那个。
+
+想用 headless 做命令行测试的话，需要把 `web` 的 patch 应用到 `headless`
+（本机曾试过，但该版本没有随包的 headless 模板，`--from-default-profile headless` 会失败，
+所以最终没有保留，`~/.dsh/profiles/` 下只有 `web`）。
 
 > 另一个 provider `custom-pomoai` 需要 `CUSTOM_POMOAI_API_KEY`，本次**未配置**
 > （用不到；要启用再补）。默认模型走 `anthropic` provider。
