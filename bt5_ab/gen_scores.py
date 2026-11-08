@@ -48,10 +48,15 @@ for i in range(n):
     hhmm = rec[1] // 100          # 93000 -> 930
     cidx = rec[2]
     close = rec[8]
-    if 930 <= hhmm <= 1129:
-        slot = hhmm - 930
-    elif 1300 <= hhmm <= 1459:
-        slot = 120 + (hhmm - 1300)
+    # 注意：hhmm 是 HHMM 十进制（如 1000 = 10:00），不能直接减 930 算槽位。
+    # 必须先折算成「距零点的分钟数」，否则跨小时后整体错位
+    # （10:00 会被算成 slot=70，正确值是 30；14:00 之后更会越界）。
+    h_, m_ = hhmm // 100, hhmm % 100
+    mod = h_ * 60 + m_
+    if 570 <= mod < 690:
+        slot = mod - 570
+    elif 780 <= mod < 900:
+        slot = 120 + (mod - 780)
     else:
         continue
     if 0 <= cidx < N and 0 <= slot < 240 and close > 0:
