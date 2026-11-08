@@ -377,3 +377,92 @@ bin/backtest <panel_dir> <factors.txt> <out_prefix> <topN> <hold> <slip_bp> <com
 2. 期末现金占比 59%~88%，**资金实际只用了 12%~41%** —— 参与率上限卡住了，
    收益率是相对 100 万本金算的，相当于「小仓位、高收益」，不能线性放大；
 3. `t0=true` 假设底仓 T+0，未计底仓占用的资金与隔夜风险。
+
+---
+
+## 2026-11-08：完整流程冒烟 + bt5 接入打通 + 环境事故复盘
+
+### 一句话
+
+四条链路全部跑通并给出可复现基线：**因子 → 分钟回测 → 逐 tick 模拟 → bt5 撮合**；
+其中 bt5 首次逐项复现了历史结果（成交率 98.05%，利润 0.36 BP）。
+
+### 冒烟结果（20260105，单日）
+
+| 环节 | 命令 | 实测 | 关键输出 |
+|---|---|---|---|
+| 因子 | `alpha_expr panels f5.txt out 20260105 20260106` | **0.1 s** / 5 因子 | IC1/IC3/IC5、IR、coverage |
+| 分钟回测 | `backtest panels f5.txt out 20 5 5 3 5 ...` | **0.2 s** | 净 **-18.14 bp**、容量中位 7.06 万 |
+| 逐 tick | `sim_live 20260105 out 20 5 0 0` | **1 分 44 秒** | 索引 2.05 亿、成交 4058 笔、费用 2.67 万 |
+| bt5 | `demo --tickPath=... --scoreFile=/bt5sig ...` | 全量 | **成交率 98.05%、97.08%、+0.36 BP** |
+
+`-18 bp` 与 `+0.36 BP` 并不矛盾：前者是 1 分钟高频换仓（换手极高），后者是 60 分钟 cohort 口径。
+
+### bt5 接入：三个格式（此前一直卡住的地方）
+
+1. **basketFile 要带数量**：`TKR,QTY` 表头 + `000001.SZ,22500`，只给代码列表会逐行 `error line`。
+2. **scoreFile 是共享内存名**，不是 CSV 路径：回测模式下信号由外部进程写入 shm，引擎增量读取；
+   传 CSV 会报 `failed to open shm`。
+3. **`didx` 与 `tidx` 都是全局 tick 下标**（TickPool `get_data(k)` 的序号），不是行号或时间戳。
+   造假值会让策略状态机在 `real_thread` 里崩（栈回溯无符号，极难定位）。
+
+完整链路：`gen_scores.py`（面板→`symbol,HHMMSSmmm,score`）
+→ `make_signals`（映射到全局 tick 下标）
+→ `make_signal_shm`（写 `/bt5sig`）
+→ `demo`（引擎读取并撮合）。
+
+**编译坑**：官方 makefile 缺 `libhiredis_cluster` / `libhiredis`，还缺 `LQUANTSELFLog::logger` 桩；
+需补 `-lpthread -lrt -ldl`（详见 `MIGRATION.md` §5.3）。
+
+### 复现验证
+
+换成 `bt5_ab/run/scoreThreshold.csv`（阈值固定 ±1.0）后，输出与 2026-11-06 那次**逐位一致**：
+
+```
+volume: 8,293,312 / 8,458,300 (98.05%)
+amount: 101,325,679.37 / 104,378,078.95 (97.08%)
+profit: 3,646.29 (0.36 BP)
+```
+
+> 注意：`bt5_demo/scoreThreshold.csv` 是 5104 行「各股不同阈值」的示例文件，
+> 用它跑出来是 71.88% / -3.24 BP。**两次结果不同不是 bug，是阈值文件不同**（引擎从 cwd 读取）。
+
+### 环境事故复盘（值得记下来）
+
+**现象**：所有 shell 命令退码 127，`bash` 一启动就报
+`relocation error ... _dl_audit_symbind_alt ... GLIBC_PRIVATE`。
+
+**根因**：`/home/intern2/node-v24.22.2/bin/node` 是个 3 行包装脚本，
+里面 `export LD_LIBRARY_PATH=<glibc228>` 再 exec `node-real`。
+`export` 写进环境后**被所有子进程继承** —— dsh 及其派生的 `bash`/`git`/`make` 全部拿到
+「2.17 的加载器 + 2.28 的 libc」，在 `main()` 之前就崩。
+
+**修复**：改成用 `ld.so` 显式加载，环境变量不外泄：
+
+```sh
+exec /home/intern2/glibc228/usr/lib64/ld-2.28.so \
+     --library-path <libs> <node-real> "$@"
+```
+
+**教训**：`LD_LIBRARY_PATH` 是进程级、且完全继承的。
+「只给某个程序用新 glibc」必须靠 patchelf（interpreter + rpath）或 `ld.so --library-path`，
+**绝不能 exports 到环境里**。详见 `FIX-NODE-WRAPPER.md`、`AGENTS.md` §2。
+
+### 数据质量待查
+
+`sim_live` 单日报 **`bad_ts=32,200,146`**（3200 万条时间戳异常）。未定位，
+疑与集合竞价段或个别股票字段有关。不影响分钟面板链路，但会影响 tick 级事件的时序归因。
+
+### 本次产出
+
+- `MIGRATION.md`：新账号接管指南（数据清单 / 环境坑 / 恢复步骤 / 基线数字 / checklist）
+- `bt5_ab/`：bt5 接入闭环脚本与历史结果
+- `bt5_demo/`：改造过的示例工程（basket 格式、shm 信号）
+- `FIX-NODE-WRAPPER.md`：环境修复指南
+- Overleaf 侧：中英文各补 8 处文献引用（2025–2026 占比 4.2% → 39.5%）、修 4 处 LaTeX 语法错误
+
+### 下一步
+
+1. 查 `bad_ts` 的成因（是否集中在某几只股票 / 集合竞价段）。
+2. bt5 与 `sim_live` 的 A/B 对比跑多日（当前只有单日 + 3 天 samples）。
+3. 面板加盘口字段（OFI / spread / 深度），把 `close/vwap` 那类伪因子替换掉。
