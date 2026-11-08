@@ -83,3 +83,8 @@ experiments/*/cancel_agg.csv
 experiments/*/*.log
 experiments/e6_impact*/p*/
 experiments/rq1_l3/2026*.txt
+
+# E4 A/B 的成交明细（较大，可重跑生成）
+experiments/e4_ab/*.fills.csv
+experiments/e4_ab/*.replay.csv
+experiments/e4_ab/*.log
