@@ -427,6 +427,16 @@ int main(int argc, char** argv) {
     if (argc > 4) cfg.holdMin = atoi(argv[4]);
     if (argc > 5) cfg.latencyMs = atoi(argv[5]);
     if (argc > 6) cfg.maxTicks = atoi(argv[6]);
+    // E6 冲击成本实验：允许用环境变量覆盖参与率上限（不占用已有参数位）
+    //   SIM_PARTICIPATION=0.005 ./bin/sim_live 20260105 out 20 5 0 0
+    if (const char* p = getenv("SIM_PARTICIPATION")) {
+        double v = atof(p);
+        if (v > 0.0 && v <= 1.0) cfg.participation = v;
+        else fprintf(stderr, "warn: SIM_PARTICIPATION=%s 无效，用默认 %.4f\n", p, cfg.participation);
+    }
+    // 打印生效参数，便于实验复现
+    fprintf(stderr, "cfg: topN=%d holdMin=%d latencyMs=%d participation=%.4f\n",
+            cfg.topN, cfg.holdMin, cfg.latencyMs, cfg.participation);
 
     std::string tickPath = "/opt/bar_data";
     std::vector<char> pb(tickPath.begin(), tickPath.end()); pb.push_back('\0');
@@ -448,7 +458,13 @@ int main(int argc, char** argv) {
 
     Engine eng(N);
     eng.cfg = cfg;
-    eng.acct.cash = 1000000.0;      // 初始资金 100 万
+    double initEq = 1000000.0;      // 初始资金，默认 100 万
+    if (const char* e = getenv("SIM_EQUITY")) {          // E6 冲击成本实验可放大
+        double v = atof(e);
+        if (v >= 1e4) initEq = v;
+        else fprintf(stderr, "warn: SIM_EQUITY=%s 过小，用默认\n", e);
+    }
+    eng.acct.cash = initEq;
     eng.acct.initCash = eng.acct.cash;
     eng.resetDaily();
 

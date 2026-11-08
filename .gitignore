@@ -77,3 +77,9 @@ bt5_work/demo/demo_opt
 bt5_work/demo/demo_base
 gh_stage/bt5_engine/demo/demo
 gh_stage/bt5_engine/demo/*.o
+
+# 实验中间数据（体积大、可重建；只保留脚本与结果 CSV）
+experiments/*/cancel_agg.csv
+experiments/*/*.log
+experiments/e6_impact*/p*/
+experiments/rq1_l3/2026*.txt
