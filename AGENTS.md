@@ -35,6 +35,14 @@ LD_LIBRARY_PATH=/home/intern2/glibc228/usr/lib64:/home/intern2/glibc228/lib64
 - **根因不是误设（待验证）**：本机是 CentOS 7（glibc 2.17），dsh 要 node ≥ 24.9，node 24 官方二进制要 glibc ≥ 2.28，所以 `/home/intern2/glibc228` 很可能是 node 能跑的前提；`node22/bin/` 下 `node` 与 `node.orig` 并存，说明 node 被 patch 过（可能已带 rpath）。**结论未实机验证**：直接 unset 后 dsh 未必起不来，但存在这个风险，所以重启脚本会先探针再决定。
 - 正确做法：只给 node 进程用 glibc228，不设环境变量——`env -u LD_LIBRARY_PATH <ld-2.28.so> --library-path <glibc 目录> <node> <args>`，这样子进程回归系统 glibc。
 - **一键重启脚本**：`bash /home/intern2/rachel/restart-dsh.sh --dry-run`（只探测不杀进程），确认后去掉 `--dry-run` 执行。脚本会从 `/proc/<pid>/cmdline` 读出原启动命令原样重启、自动探测 clean/loader 两种方式、做健康检查、失败自动回滚。**必须在独立终端跑**，不要在 dsh 会话内执行（会杀掉自己）。
+- **共享工具链（2026-11-08 新增）**：`/opt/shared-toolchain/`（755，任何账号可用）放着
+  glibc 2.28 + node 24.22.2，wrapper 用 `ld.so --library-path` 显式加载、**不设环境变量**。
+  配套自检脚本：`/opt/shared-toolchain/check-env.sh --deep`（14 项，出问题先跑这个）。
+- **账号 11（intern11）已配置完成**：dsh 0.2.2-rc.1 装在 `~/.npm-global`，
+  启动用 `~/start-dsh.sh`（默认端口 **3081**；intern2 占 3080），
+  启动脚本会先自检、检测到 `LD_LIBRARY_PATH` 污染直接拒绝启动。
+  完整记录见 `ACCOUNT11-SETUP.md`。装 dsh 必须加 `--ignore-scripts`
+  （`koffi` 要从源码编译，本机 GCC 4.8.5 会失败并导致整包回滚）。
 - **已打的本地补丁（2026-11-07）**：`node_modules/@deepseek-ai/dsh-subprocess-local/lib/runner-launch-*.js` 的 `targetEnvironment()` 里加了一段，把 `LD_LIBRARY_PATH/LD_PRELOAD/LD_AUDIT` 从**目标进程**环境里删掉（bootstrap/node 那条路走 `childEnv()`，不受影响），这样子进程回归系统 glibc。**删除那段 for 循环即可恢复原样**；npm 升级 dsh 后补丁会丢失，需重打。注意副作用：dsh 里跑 bt5 那类需要 glibc228 的程序时，要自己显式 `LD_LIBRARY_PATH=... cmd`。
 
 ## 3. 开题报告（bilingual proposal）
